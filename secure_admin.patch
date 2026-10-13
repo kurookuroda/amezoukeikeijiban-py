@@ -1,0 +1,94 @@
+--- amezo.cgi.orig
++++ amezo.cgi
+@@ -1,8 +1,12 @@
+ #!/usr/bin/perl
+ use Encode ();
+ use Fcntl qw(:flock O_RDWR O_CREAT O_EXCL);
+ use Time::Local ();
+ use FindBin qw($Bin);
++use Crypt::Argon2 qw(argon2id_pass argon2id_verify);
++use Crypt::URandom qw(urandom);
++
+ chdir($Bin);   # 相対パスで動くので、カレントをスクリプトのあるディレクトリに固定する
+ 
+ $copyright = <<EOL;
+@@ -30,8 +34,15 @@
+ # 接続元IP信頼設定
+ @trusted_proxies = ('127.0.0.1', '::1');
+ 
+-# スレッド削除機能の合言葉ハッシュファイル
++# スレッド削除機能の合言葉ハッシュファイル（Argon2id形式）
+ $delcryptfile = 'delpass.txt';
++
++# Argon2id 推奨パラメータ（2026年）
++my $ARGON2_MEMORY      = '64M';   # 64 MiB
++my $ARGON2_TIME        = 3;
++my $ARGON2_PARALLELISM = 1;
++my $ARGON2_SALT_LEN    = 16;
+ 
+ $ENV{'SCRIPT_FILENAME'} =~ /\/([^\/]+)$/;
+ $cgi = $1;
+@@ -170,9 +181,11 @@
+ $_ = $admin;
+ s/(\W)/\\$1/g;
+ $name =~ s/$_/＃$admin/g;
+ 
+-$delcrypt = &load_delcrypt;
+-$delcrypt ne '' && crypt($name, $delcrypt) eq $delcrypt && &del;
++# 管理者認証（専用フィールド adminpass を使用。name フィールドは使わない）
++my $admin_pass = $form{'adminpass'} // '';
++if (length($admin_pass) && &verify_admin_password($admin_pass)) {
++    &del;
++}
+ length($res) && undef $subj;
+ length($name) || &error("投稿者を記入してください");
+ length($comm) || &error("コメントが入力されていません");
+@@ -480,20 +493,55 @@
+     return Encode::encode('UTF-8', $dec);
+ }
+ 
+-sub load_delcrypt {
++sub load_delcrypt {
+     local $/;
+     open(my $f, '<', $delcryptfile) or return '';
+     my $c = <$f>;
+     close($f);
+     return '' unless defined $c;
+     $c =~ s/^\s+//;
+     $c =~ s/\s+$//;
+     return $c;
+ }
+ 
++sub verify_admin_password {
++    my ($input) = @_;
++    return 0 unless defined $input && length($input);
++
++    my $stored = &load_delcrypt;
++    return 0 if $stored eq '';
++
++    # Argon2id 形式のみ許可（古い crypt 形式は拒否）
++    return 0 unless $stored =~ /^\$argon2id\$/;
++
++    return argon2id_verify($stored, $input) ? 1 : 0;
++}
++
++# 初回設定・パスワード変更用（コマンドラインなどから一度だけ実行）
++sub generate_admin_hash {
++    my ($password) = @_;
++    return '' unless defined $password && length($password) >= 8;
++
++    my $salt = urandom($ARGON2_SALT_LEN);
++    my $hash = argon2id_pass(
++        $password,
++        $salt,
++        $ARGON2_TIME,
++        $ARGON2_MEMORY,
++        $ARGON2_PARALLELISM
++    );
++    return $hash;
++}
++
+ sub is_board {
+     my ($f) = @_;
+     local $_;
+     open(my $b, '<', './blist.txt') or return 0;
