@@ -139,7 +139,7 @@ def make_hash(password, iterations=HASH_ITERATIONS, salt=None):
     if salt is None:
         salt = os.urandom(16)
     dk = hashlib.pbkdf2_hmac('sha256', password.encode('utf-8'), salt, iterations)
-    return f"{HASH_SCHEME}${iterations}${salt.hex()}${dk.hex()}"
+    return f" {HASH_SCHEME}${iterations}${salt.hex()}${dk.hex()}"
 
 
 def verify_hash(password, stored):
@@ -408,7 +408,7 @@ def main():
         folder = form['folder']
     elif query_params.get('folder'):
         folder = query_params['folder']
-    else:
+    else: 
         ref = urllib.parse.unquote(os.environ.get('HTTP_REFERER', ''))
         ref = re.sub(r'^(https?://)www\.', r'\1', ref)
         m = re.search(r'https?://[^/]+/([^/]+)/', ref)
@@ -527,7 +527,7 @@ def main():
         if subj:
             check_global_ip(client_ip())
 
-        # URL自動リンク (\w は ASCII のみ。日本語を巻き込まない)
+        # URL自動リンク (\w は ASCII のみ。日本語を取り込まない)
         def url_replacer(m):
             dsp = m.group(1)
             url = dsp.replace('&amp;', '&')
@@ -588,7 +588,7 @@ def main():
             f.seek(pos)
             cnt += 1
 
-            # 二重投稿チェック (Perl と同じ貪欲マッチ)
+            # 二重投稿チェック (Perl と同じ重複マッチ)
             m = re.search(r'<b>(.+) </b>.+<dd>(.+) </dl>', prev)
             if m and name == m.group(1) and comm == m.group(2):
                 error("二重カキコです.")
@@ -604,7 +604,7 @@ def main():
                          '投稿者 <input type=text name="name" size=20>'
                          'メール <input type=text name="mail" size=20><br>'
                          '<input type=submit value="↑へのレスカキコ" >'
-                         '<textarea name="comm" rows=4 cols=70 ></textarea>'
+                         '<textarea name="comm" rows=4 cols=70></textarea>'
                          '</form>')
             f.write(line_out + '\n')
             f.write(form_html + '\n')
@@ -660,7 +660,7 @@ def main():
         except FileNotFoundError:
             pass
 
-    # 「次のページ」のキャッシュ
+    # 「つぎのページ」のキャッシュ
     if next_page != 21 and PAGE_CACHE > 0:
         try:
             with open(indexfile, 'r', encoding='utf-8') as f:
@@ -771,7 +771,7 @@ def main():
 
             f.write("<!-- HEAD LINE END -->\n</font>\n")
 
-            # 本文(1レス目 + 末尾7レス)
+            # 本文(1レス目 + メ末7レス)
             for i in range(start_idx, next_page - 1):
                 if i >= len(entries):
                     break
@@ -808,7 +808,7 @@ def main():
 <input type=submit value="↑へのレスカキコ" >
 <a href="{fname}">レス全部を見る</a>
 {sub_form}<a href="#top">上へ　</a><a href="./">リロード</a><br>
-<textarea name="comm" rows=4 cols=70 ></textarea>
+<textarea name="comm" rows=4 cols=70></textarea>
 </form><hr>
 """)
 
